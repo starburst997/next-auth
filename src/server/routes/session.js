@@ -32,7 +32,11 @@ export default async (req, res, options, done) => {
         user: {
           name: decodedJwt.user && decodedJwt.user.name ? decodedJwt.user.name : null,
           email: decodedJwt.user && decodedJwt.user.email ? decodedJwt.user.email : null,
-          image: decodedJwt.user && decodedJwt.user.image ? decodedJwt.user.image : null
+          image: decodedJwt.user && decodedJwt.user.image ? decodedJwt.user.image : null,
+          username: decodedJwt.user && decodedJwt.user.username ? decodedJwt.user.username : null,
+          id: decodedJwt.user && decodedJwt.user.id ? decodedJwt.user.id : null,
+          admin: decodedJwt.user && decodedJwt.user.admin ? decodedJwt.user.admin : null,
+          moderator: decodedJwt.user && decodedJwt.user.moderator ? decodedJwt.user.moderator : null
         },
         expires: sessionExpires
       }
@@ -72,7 +76,11 @@ export default async (req, res, options, done) => {
           user: {
             name: user.name,
             email: user.email,
-            image: user.image
+            image: user.image,
+            username: user.username,
+            id: user.id,
+            admin: user.admin,
+            moderator: user.moderator
           },
           accessToken: session.accessToken,
           expires: session.expires
