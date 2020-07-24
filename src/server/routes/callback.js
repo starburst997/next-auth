@@ -1,4 +1,9 @@
 // Handle callbacks from login services
+
+// TODO: Move to discourse.js callback
+import crypto from 'crypto'
+import querystring from 'querystring'
+
 import oAuthCallback from '../lib/oauth/callback'
 import callbackHandler from '../lib/callback-handler'
 import cookie from '../lib/cookie'
@@ -28,7 +33,117 @@ export default async (req, res, options, done) => {
   // Get session ID (if set)
   const sessionToken = req.cookies ? req.cookies[cookies.sessionToken.name] : null
 
-  if (type === 'oauth') {
+  if (type === 'discourse') {
+
+    const { sso, sig } = req.query
+
+    // Missing query param
+    if (!sso || !sig) {
+      logger.error('CALLBACK_OAUTH_ERROR', 'Missing sso / sig query')
+      res.status(302).setHeader('Location', `${baseUrl}/error?error=oAuthCallback`)
+      res.end()
+      return done()
+    }
+
+    // Validate
+    const { secret } = provider
+    const decoded_sso = decodeURIComponent(sso)
+    
+    let hmac = crypto.createHmac('sha256', secret)
+    hmac.update(decoded_sso)
+    
+    const hash = hmac.digest('hex')
+    if (sig != hash) {
+      logger.error('CALLBACK_OAUTH_ERROR', 'Non-matching sig / sso keys')
+      res.status(302).setHeader('Location', `${baseUrl}/error?error=oAuthCallback`)
+      res.end()
+      return done()
+    }
+
+    // Get data
+    const b = Buffer.from(sso, 'base64')
+    const inner_qstring = b.toString('utf8')
+    const ret = querystring.parse(inner_qstring)
+
+    // Check nonce against cookie
+    hmac = crypto.createHmac('sha256', secret)
+    hmac.update(ret.nonce)
+    const nonceHash = hmac.digest('hex')
+
+    const cookieNonceHash = req.cookies[cookies.nonceHash.name];
+
+    // Remove cookie
+    cookie.set(res, cookies.nonceHash.name, "", {maxAge: -1, ...cookies.nonceHash.options})
+
+    if (cookieNonceHash != nonceHash || !nonceHash || !cookieNonceHash) {
+      logger.error('CALLBACK_OAUTH_ERROR', `Non-matching nonce`)
+      res.status(302).setHeader('Location', `${baseUrl}/error?error=oAuthCallback`)
+      res.end()
+      return done()
+    }
+
+    // Verify we have all info needed
+    if (!ret.external_id || !ret.email || !ret.username) {
+      logger.error('CALLBACK_OAUTH_ERROR', `Missing property on returned object`)
+      res.status(302).setHeader('Location', `${baseUrl}/error?error=oAuthCallback`)
+      res.end()
+      return done()
+    }
+
+    // Success, we can log the user in!
+    const profile = { 
+      email: ret.email, 
+      name: ret.name || ret.username, 
+      image: ret.avatar_url || '', 
+      username: ret.username, 
+      id: ret.external_id, 
+      admin: ret.admin === 'true',
+      moderator: ret.moderator === 'true'  
+    }
+    const account = { 
+      id: ret.external_id, 
+      type: provider.type, 
+      provider: provider.id
+    }
+
+    // Check if user is allowed to sign in
+    const signinCallbackResponse = await callbacks.signin(profile, account, null)
+
+    if (signinCallbackResponse === false) {
+      res.status(302).setHeader('Location', `${baseUrl}/error?error=AccessDenied`)
+      res.end()
+      return done()
+    }
+
+    // Sign user in
+    // TODO: Support discourse when adapter is available
+    const { user, session, isNewUser } = await callbackHandler(sessionToken, profile, account, options)
+
+    if (useJwtSession) {
+      const defaultJwtPayload = { user, account, isNewUser }
+      const jwtPayload = await callbacks.jwt(defaultJwtPayload)
+
+      // Sign and encrypt token
+      const newEncodedJwt = await jwt.encode({ secret: jwt.secret, token: jwtPayload, maxAge: sessionMaxAge })
+
+      // Set cookie expiry date
+      const cookieExpires = new Date()
+      cookieExpires.setTime(cookieExpires.getTime() + (sessionMaxAge * 1000))
+
+      cookie.set(res, cookies.sessionToken.name, newEncodedJwt, { expires: cookieExpires.toISOString(), ...cookies.sessionToken.options })
+    } else {
+      // Save Session Token in cookie
+      cookie.set(res, cookies.sessionToken.name, session.sessionToken, { expires: session.expires || null, ...cookies.sessionToken.options })
+    }
+
+    await dispatchEvent(events.signin, { user, account, isNewUser })
+
+    // Callback URL is already verified at this point, so safe to use if specified
+    res.status(302).setHeader('Location', callbackUrl || site)
+    res.end()
+    return done()
+
+  } else if (type === 'oauth') {
     try {
       oAuthCallback(req, provider, async (error, profile, account, OAuthProfile) => {
         try {

@@ -126,7 +126,7 @@ const signin = async (provider, args) => {
     // If Provider not recognized, redirect to sign in page
     const baseUrl = _baseUrl()
     window.location = `${baseUrl}/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`
-  } else if (providers[provider].type === 'oauth') {
+  } else if (providers[provider].type === 'oauth' || providers[provider].type === 'discourse') {
     // If is an OAuth provider, redirect to providers[provider].signinUrl
     window.location = `${providers[provider].signinUrl}?callbackUrl=${encodeURIComponent(callbackUrl)}`
   } else {

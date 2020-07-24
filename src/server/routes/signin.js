@@ -1,7 +1,9 @@
 // Handle requests to /api/auth/signin
 import oAuthSignin from '../lib/signin/oauth'
+import discourseSignin from '../lib/signin/discourse'
 import emailSignin from '../lib/signin/email'
 import logger from '../../lib/logger'
+import cookie from '../lib/cookie'
 
 export default async (req, res, options, done) => {
   const {
@@ -10,6 +12,7 @@ export default async (req, res, options, done) => {
     baseUrl,
     csrfTokenVerified,
     adapter,
+    cookies,
     callbacks
   } = options
   const provider = providers[providerName]
@@ -20,7 +23,25 @@ export default async (req, res, options, done) => {
     return done()
   }
 
-  if (type === 'oauth') {
+  if (type === 'discourse') {
+    discourseSignin(provider, (error, nonceHash, discourseSigninUrl) => {
+      if (error) {
+        logger.error('SIGNIN_DISCOURSE_ERROR', error)
+        res
+          .status(302)
+          .setHeader('Location', `${baseUrl}/error?error=discourseSignin`)
+        res.end()
+        return done()
+      }
+
+      // Set cookie for validation
+      cookie.set(res, cookies.nonceHash.name, nonceHash, cookies.nonceHash.options)
+
+      res.status(302).setHeader('Location', discourseSigninUrl)
+      res.end()
+      return done()
+    })
+  } else if (type === 'oauth') {
     oAuthSignin(provider, (error, oAuthSigninUrl) => {
       if (error) {
         logger.error('SIGNIN_OAUTH_ERROR', error)

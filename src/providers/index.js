@@ -5,6 +5,7 @@ import Credentials from './credentials'
 import BattleNet from './battlenet'
 import Cognito from './cognito'
 import Discord from './discord'
+import Discourse from './discourse'
 import Email from './email'
 import Facebook from './facebook'
 import GitHub from './github'
@@ -26,6 +27,7 @@ export default {
   BattleNet,
   Cognito,
   Discord,
+  Discourse,
   Email,
   Facebook,
   GitHub,

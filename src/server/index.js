@@ -100,6 +100,14 @@ export default async (req, res, userSuppliedOptions) => {
           secure: useSecureCookies
         }
       },
+      nonceHash: {
+        name: `${cookiePrefix}next-auth.nonce-hash`,
+        options: {
+          sameSite: 'lax',
+          path: '/',
+          secure: useSecureCookies
+        }
+      },
       // Allow user cookie options to override any cookie settings above
       ...userSuppliedOptions.cookies
     }
