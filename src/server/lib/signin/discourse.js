@@ -22,7 +22,7 @@ export default (provider, callback) => {
     const urlenc_payload_b64 = encodeURIComponent(payload_b64)
     const url_redirect = url+"/session/sso_provider?sso="+urlenc_payload_b64+"&sig="+hex_sig
     
-    // Save nonce in cookie session (is there a better way?)
+    // Return nonce hash
     hmac = crypto.createHmac('sha256', secret)
     hmac.update(nonce)
     const nonceHash = hmac.digest('hex')
