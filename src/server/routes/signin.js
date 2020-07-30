@@ -10,10 +10,12 @@ export default async (req, res, options, done) => {
     provider: providerName,
     providers,
     baseUrl,
-    csrfTokenVerified,
+    basePath,
     adapter,
     cookies,
-    callbacks
+    callbacks,
+    csrfToken,
+    redirect
   } = options
   const provider = providers[providerName]
   const { type } = provider
@@ -27,43 +29,27 @@ export default async (req, res, options, done) => {
     discourseSignin(provider, (error, nonceHash, discourseSigninUrl) => {
       if (error) {
         logger.error('SIGNIN_DISCOURSE_ERROR', error)
-        res
-          .status(302)
-          .setHeader('Location', `${baseUrl}/error?error=discourseSignin`)
-        res.end()
-        return done()
+        return redirect(`${baseUrl}${basePath}/error?error=oAuthSignin`)
       }
 
       // Set cookie for validation
       cookie.set(res, cookies.nonceHash.name, nonceHash, cookies.nonceHash.options)
 
-      res.status(302).setHeader('Location', discourseSigninUrl)
-      res.end()
-      return done()
+      return redirect(discourseSigninUrl)
     })
-  } else if (type === 'oauth') {
-    oAuthSignin(provider, (error, oAuthSigninUrl) => {
+  } else if (type === 'oauth' && req.method === 'POST') {
+    oAuthSignin(provider, csrfToken, (error, oAuthSigninUrl) => {
       if (error) {
         logger.error('SIGNIN_OAUTH_ERROR', error)
-        res
-          .status(302)
-          .setHeader('Location', `${baseUrl}/error?error=oAuthSignin`)
-        res.end()
-        return done()
+        return redirect(`${baseUrl}${basePath}/error?error=oAuthSignin`)
       }
 
-      res.status(302).setHeader('Location', oAuthSigninUrl)
-      res.end()
-      return done()
+      return redirect(oAuthSigninUrl)
     })
   } else if (type === 'email' && req.method === 'POST') {
     if (!adapter) {
       logger.error('EMAIL_REQUIRES_ADAPTER_ERROR')
-      res
-        .status(302)
-        .setHeader('Location', `${baseUrl}/error?error=Configuration`)
-      res.end()
-      return done()
+      return redirect(`${baseUrl}${basePath}/error?error=Configuration`)
     }
     const { getUserByEmail } = await adapter.getAdapter(options)
 
@@ -79,54 +65,30 @@ export default async (req, res, options, done) => {
     const account = { id: provider.id, type: 'email', providerAccountId: email }
 
     // Check if user is allowed to sign in
-    const signinCallbackResponse = await callbacks.signin(profile, account)
-
-    if (signinCallbackResponse === false) {
-      res.status(302).setHeader('Location', `${baseUrl}/error?error=AccessDenied`)
-      res.end()
-      return done()
-    }
-
-    // If CSRF token not verified, send the user to sign in page, which will
-    // display a new form with a valid token so that submitting it should work.
-    //
-    // Note: Adds ?csrf=true query string param to URL for debugging/tracking
-    if (!csrfTokenVerified) {
-      res
-        .status(302)
-        .setHeader(
-          'Location',
-          `${baseUrl}/signin?email=${encodeURIComponent(email)}&csrf=true`
-        )
-      res.end()
-      return done()
+    try {
+      const signinCallbackResponse = await callbacks.signIn(profile, account, { email, verificationRequest: true })
+      if (signinCallbackResponse === false) {
+        return redirect(`${baseUrl}${basePath}/error?error=AccessDenied`)
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        return redirect(`${baseUrl}${basePath}/error?error=${encodeURIComponent(error)}`)
+      } else {
+        return redirect(error)
+      }
     }
 
     try {
       await emailSignin(email, provider, options)
     } catch (error) {
       logger.error('SIGNIN_EMAIL_ERROR', error)
-      res
-        .status(302)
-        .setHeader('Location', `${baseUrl}/error?error=EmailSignin`)
-      res.end()
-      return done()
+      return redirect(`${baseUrl}${basePath}/error?error=EmailSignin`)
     }
 
-    res
-      .status(302)
-      .setHeader(
-        'Location',
-        `${baseUrl}/verify-request?provider=${encodeURIComponent(
-          provider.id
-        )}&type=${encodeURIComponent(provider.type)}`
-      )
-    res.end()
-    return done()
+    return redirect(`${baseUrl}${basePath}/verify-request?provider=${encodeURIComponent(
+      provider.id
+    )}&type=${encodeURIComponent(provider.type)}`)
   } else {
-    // If provider not supported, redirect to sign in page
-    res.status(302).setHeader('Location', `${baseUrl}/signin`)
-    res.end()
-    return done()
+    return redirect(`${baseUrl}${basePath}/signin`)
   }
 }

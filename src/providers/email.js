@@ -22,10 +22,11 @@ export default (options) => {
   }
 }
 
-const sendVerificationRequest = ({ identifier: email, url, token, site, provider }) => {
+const sendVerificationRequest = ({ identifier: email, url, baseUrl, provider }) => {
   return new Promise((resolve, reject) => {
     const { server, from } = provider
-    site = site.replace(/^https?:\/\//, '') // Strip protocol from site
+    // Strip protocol from URL and use domain as site name
+    const site = baseUrl.replace(/^https?:\/\//, '')
 
     nodemailer
       .createTransport(server)

@@ -15,7 +15,7 @@ The Email provider can be used in conjunction with (or instead of) one or more O
 
 On initial sign in, a **Verification Token** is sent to the email address provided. By default this token is valid for 24 hours. If the Verification Token is used with that time (i.e. by clicking on the link in the email) an account is created for the user and they are signed in.
 
-If someone provides the email address of an *existing account* when signin in, an email is sent and they are signed into the account associated with that email address when they follow the link in the email.
+If someone provides the email address of an *existing account* when signing in, an email is sent and they are signed into the account associated with that email address when they follow the link in the email.
 
 
 :::tip
@@ -101,10 +101,11 @@ The following code shows the complete source for the built-in `sendVerificationR
 ```js
 import nodemailer from 'nodemailer'
 
-const sendVerificationRequest = ({ identifier: email, url, token, site, provider }) => {
+const sendVerificationRequest = ({ identifier: email, url, token, baseUrl, provider }) => {
   return new Promise((resolve, reject) => {
     const { server, from } = provider
-    site = site.replace(/^https?:\/\//, '') // Strip protocol from site
+    // Strip protocol from URL and use domain as site name
+    const site = baseUrl.replace(/^https?:\/\//, '')
 
     nodemailer
       .createTransport(server)

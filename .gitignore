@@ -27,3 +27,8 @@ yarn.lock
 
 # Docusaurus
 www/build
+
+#VS
+/.vs/slnx.sqlite-journal
+/.vs/slnx.sqlite
+/.vs
