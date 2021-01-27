@@ -92,7 +92,8 @@ export default async (req, res, options, done) => {
       username: ret.username, 
       id: ret.external_id, 
       admin: ret.admin === 'true',
-      moderator: ret.moderator === 'true'  
+      moderator: ret.moderator === 'true' ,
+      group: parseInt(ret.group) || 0 
     }
     const account = { 
       id: ret.external_id, 
