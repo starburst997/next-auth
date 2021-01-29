@@ -37,7 +37,7 @@ export default async (req, res, options, done) => {
           id: decodedJwt.id || null,
           admin: decodedJwt.admin || null,
           moderator: decodedJwt.moderator || null,
-          group: decodedJwt.group || null
+          groups: decodedJwt.groups || null
         },
         expires: sessionExpires
       }
@@ -82,7 +82,7 @@ export default async (req, res, options, done) => {
             id: user.id,
             admin: user.admin,
             moderator: user.moderator,
-            group: user.group
+            groups: user.groups
           },
           accessToken: session.accessToken,
           expires: session.expires
